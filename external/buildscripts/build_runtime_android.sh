@@ -53,7 +53,7 @@ if [ ! -a $TOOLCHAIN -o ! -a $PLATFORM_ROOT ]; then
 	exit 1
 fi
 
-KRAIT_PATCH_PATH="${CWD}/../../android_krait_signal_handler/build"
+KRAIT_PATCH_PATH="${CWD}/external/android_krait_signal_handler"
 PATH="$TOOLCHAIN/bin:$PATH"
 CC="$TOOLCHAIN/bin/${GCC_PREFIX}gcc --sysroot=$PLATFORM_ROOT"
 CXX="$TOOLCHAIN/bin/${GCC_PREFIX}g++ --sysroot=$PLATFORM_ROOT"
@@ -76,7 +76,7 @@ CXXFLAGS=$CFLAGS
 CPPFLAGS=$CFLAGS
 LDFLAGS="\
 -Wl,--wrap,sigaction \
--L${KRAIT_PATCH_PATH}/obj/local/armeabi -lkrait-signal-handler \
+-L${KRAIT_PATCH_PATH}/obj/local/armeabi-v7a -lkrait-signal-handler \
 -Wl,--no-undefined \
 -Wl,--gc-sections \
 -Wl,-rpath-link=$PLATFORM_ROOT/usr/lib \
