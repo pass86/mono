@@ -21,6 +21,34 @@ typedef struct CollectMetadataContext
 	MonoMetadataSnapshot* metadata;
 } CollectMetadataContext;
 
+static void
+ContextRecurseClassData (CollectMetadataContext *context, MonoClass *klass)
+{
+	gpointer orig_key, value;
+	gpointer iter = NULL;
+	MonoClassField *field = NULL;
+	int fieldCount;
+
+	/* use g_hash_table_lookup_extended as it returns boolean to indicate if value was found.
+	* If we use g_hash_table_lookup it returns the value which we were comparing to NULL. The problem is
+	* that 0 is a valid class index and was confusing our logic.
+	*/
+	if (klass->inited && !g_hash_table_lookup_extended (context->allTypes, klass, &orig_key, &value)) {
+		g_hash_table_insert (context->allTypes, klass, GINT_TO_POINTER (context->currentIndex++));
+
+		fieldCount = mono_class_num_fields (klass);
+		
+		if (fieldCount > 0) {
+			while ((field = mono_class_get_fields (klass, &iter))) {
+				MonoClass *fieldKlass = mono_class_from_mono_type (field->type);
+
+				if (fieldKlass != klass)
+					ContextRecurseClassData (context, fieldKlass);
+			}
+		}
+	}
+}
+
 static void ContextInsertClass(CollectMetadataContext* context, MonoClass* klass)
 {
 	gpointer orig_key, value;
@@ -68,11 +96,47 @@ static void CollectAssemblyMetaData (MonoAssembly *assembly, void *user_data)
 	CollectMetadataContext* context = (CollectMetadataContext*)user_data;
 	MonoImage* image = mono_assembly_get_image(assembly);
 	MonoTableInfo *tdef = &image->tables [MONO_TABLE_TYPEDEF];
+	GSList *list;
 
-	for(i = 0; i < tdef->rows-1; ++i)
-	{
-		MonoClass* klass = mono_class_get (image, (i + 2) | MONO_TOKEN_TYPE_DEF);
-		ContextInsertClass(context, klass);
+	if (image->dynamic) {
+		GHashTableIter iter;
+		gpointer key;
+		MonoDynamicImage *dynamicImage = (MonoDynamicImage *)image;
+		g_hash_table_iter_init (&iter, dynamicImage->typeref);
+
+		while (g_hash_table_iter_next (&iter, &key, NULL)) {
+			MonoType *monoType = (MonoType *)key;
+			MonoClass *klass = mono_class_from_mono_type (monoType);
+
+			if (klass)
+				ContextRecurseClassData (context, klass);
+		}
+	}
+
+	/* Some classes are only in this list. 
+	   They are added in reflection_setup_internal_class_internal.
+	*/
+	list = image->reflection_info_unregister_classes;
+
+	while (list) {
+		MonoClass *klass = (MonoClass *)list->data;
+
+		if (klass)
+			ContextRecurseClassData (context, klass);
+
+		list = list->next;
+	}
+
+	for (i = 1; i < tdef->rows; ++i) {
+		MonoClass *klass;
+		MonoError error;
+
+		guint32 token = (i + 1) | MONO_TOKEN_TYPE_DEF;
+		// TODO
+		//klass = mono_class_get_checked (image, token, &error);
+
+		if (klass)
+			ContextRecurseClassData (context, klass);
 	}
 
     if(image->array_cache)
@@ -366,7 +430,7 @@ static void CaptureManagedHeap(MonoManagedHeap* heap)
 
 	mono_mempool_foreach_chunk(domain->mp, CopyMemPoolChunk, &iterationContext);
 
-	GC_start_world_external();
+	//GC_start_world_external();
 }
 
 static void GCHandleIterationCallback(MonoObject* managedObject, GList** managedObjects)
@@ -409,9 +473,10 @@ static void FillRuntimeInformation(MonoRuntimeInformation* runtimeInfo)
 
 MonoManagedMemorySnapshot* mono_unity_capture_memory_snapshot()
 {
-	MonoManagedMemorySnapshot* snapshot;
-
+	GC_disable();
 	GC_stop_world_external();
+
+	MonoManagedMemorySnapshot* snapshot;
 	snapshot = g_new0(MonoManagedMemorySnapshot, 1);
 
 	CollectMetadata(&snapshot->metadata);
@@ -420,6 +485,7 @@ MonoManagedMemorySnapshot* mono_unity_capture_memory_snapshot()
 	FillRuntimeInformation(&snapshot->runtimeInformation);
 
 	GC_start_world_external();
+	GC_enable();
 
 	return snapshot;
 }
