@@ -365,8 +365,6 @@ static void CaptureManagedHeap(MonoManagedHeap* heap)
 	GC_foreach_heap_section(&iterationContext, CopyHeapSection);
 
 	mono_mempool_foreach_chunk(domain->mp, CopyMemPoolChunk, &iterationContext);
-
-	GC_start_world_external();
 }
 
 static void GCHandleIterationCallback(MonoObject* managedObject, GList** managedObjects)
@@ -409,9 +407,10 @@ static void FillRuntimeInformation(MonoRuntimeInformation* runtimeInfo)
 
 MonoManagedMemorySnapshot* mono_unity_capture_memory_snapshot()
 {
-	MonoManagedMemorySnapshot* snapshot;
-
+	GC_disable();
 	GC_stop_world_external();
+
+	MonoManagedMemorySnapshot* snapshot;
 	snapshot = g_new0(MonoManagedMemorySnapshot, 1);
 
 	CollectMetadata(&snapshot->metadata);
@@ -420,6 +419,7 @@ MonoManagedMemorySnapshot* mono_unity_capture_memory_snapshot()
 	FillRuntimeInformation(&snapshot->runtimeInformation);
 
 	GC_start_world_external();
+	GC_enable();
 
 	return snapshot;
 }
