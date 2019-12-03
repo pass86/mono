@@ -59,3 +59,39 @@ libeglib_la-*.o
 
 # macOS
 .DS_Store
+
+# build
+scripts/xsd2.bat
+scripts/xbuild.bat
+scripts/wsdl2.bat
+scripts/wsdl.bat
+scripts/svcutil.bat
+scripts/sqlsharp.bat
+scripts/sqlmetal.bat
+scripts/sgen.bat
+scripts/resgen2.bat
+scripts/resgen.bat
+scripts/pdb2mdb.bat
+scripts/nunit-console2.bat
+scripts/nunit-console.bat
+scripts/monop2.bat
+scripts/monop.bat
+scripts/monolinker.bat
+scripts/mono-xmltool.bat
+scripts/mono-shlib-cop.bat
+scripts/mono-api-info.bat
+scripts/mkbundle2.bat
+scripts/mkbundle.bat
+scripts/mdoc.bat
+scripts/mconfig.bat
+scripts/lc.bat
+scripts/ilasm2.bat
+scripts/ilasm.bat
+scripts/httpcfg.bat
+scripts/gmcs.bat
+scripts/gacutil2.bat
+scripts/gacutil.bat
+scripts/csharp.bat
+scripts/al2.bat
+scripts/al.bat
+libgc/compile
