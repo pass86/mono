@@ -405,6 +405,39 @@ static void FillRuntimeInformation(MonoRuntimeInformation* runtimeInfo)
 	runtimeInfo->allocationGranularity = (uint32_t)(2 * sizeof(void*));
 }
 
+static void CollectMonoImage(MonoImage* image, GHashTable* monoImages)
+{
+	if (g_hash_table_lookup(monoImages, image) != NULL)
+		return;
+
+	g_hash_table_insert(monoImages, image, image);
+
+	if (image->assembly->image != NULL &&
+		image != image->assembly->image)
+	{
+		CollectMonoImage(image->assembly->image, monoImages);
+	}
+
+	if (image->module_count > 0)
+	{
+		int i;
+
+		for (i = 0; i < image->module_count; ++i)
+		{
+			MonoImage* moduleImage = image->modules[i];
+
+			if (moduleImage)
+				CollectMonoImage(moduleImage, monoImages);
+		}
+	}
+}
+
+static void CollectMonoImageFromAssembly(MonoAssembly *assembly, void *user_data)
+{
+	GHashTable* monoImages = (GHashTable*)user_data;
+	CollectMonoImage(assembly->image, monoImages);
+}
+
 MonoManagedMemorySnapshot* mono_unity_capture_memory_snapshot()
 {
 	GC_disable();
@@ -413,11 +446,17 @@ MonoManagedMemorySnapshot* mono_unity_capture_memory_snapshot()
 	MonoManagedMemorySnapshot* snapshot;
 	snapshot = g_new0(MonoManagedMemorySnapshot, 1);
 
+	GHashTable* monoImages = g_hash_table_new(NULL, NULL);
+
+	mono_domain_assembly_foreach(mono_domain_get(), CollectMonoImageFromAssembly, monoImages);
+
 	CollectMetadata(&snapshot->metadata);
 	CaptureManagedHeap(&snapshot->heap);
 	CaptureGCHandleTargets(&snapshot->gcHandles);
 	FillRuntimeInformation(&snapshot->runtimeInformation);
 
+	g_hash_table_destroy(monoImages);
+	
 	GC_start_world_external();
 	GC_enable();
 
