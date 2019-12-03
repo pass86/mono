@@ -53,7 +53,7 @@ if [ ! -a $TOOLCHAIN -o ! -a $PLATFORM_ROOT ]; then
 	exit 1
 fi
 
-KRAIT_PATCH_PATH="${CWD}/../../android_krait_signal_handler/build"
+KRAIT_PATCH_PATH="${CWD}/external/android_krait_signal_handler"
 PATH="$TOOLCHAIN/bin:$PATH"
 CC="$TOOLCHAIN/bin/${GCC_PREFIX}gcc --sysroot=$PLATFORM_ROOT"
 CXX="$TOOLCHAIN/bin/${GCC_PREFIX}g++ --sysroot=$PLATFORM_ROOT"
@@ -76,7 +76,7 @@ CXXFLAGS=$CFLAGS
 CPPFLAGS=$CFLAGS
 LDFLAGS="\
 -Wl,--wrap,sigaction \
--L${KRAIT_PATCH_PATH}/obj/local/armeabi -lkrait-signal-handler \
+-L${KRAIT_PATCH_PATH}/obj/local/armeabi-v7a -lkrait-signal-handler \
 -Wl,--no-undefined \
 -Wl,--gc-sections \
 -Wl,-rpath-link=$PLATFORM_ROOT/usr/lib \
@@ -150,15 +150,15 @@ rm -rf $OUTDIR
 
 clean_build_krait_patch
 
-clean_build "$CCFLAGS_ARMv5_CPU" "$LDFLAGS_ARMv5" "$OUTDIR/armv5"
-clean_build "$CCFLAGS_ARMv6_VFP" "$LDFLAGS_ARMv5" "$OUTDIR/armv6_vfp"
+#clean_build "$CCFLAGS_ARMv5_CPU" "$LDFLAGS_ARMv5" "$OUTDIR/armv5"
+#clean_build "$CCFLAGS_ARMv6_VFP" "$LDFLAGS_ARMv5" "$OUTDIR/armv6_vfp"
 clean_build "$CCFLAGS_ARMv7_VFP" "$LDFLAGS_ARMv7" "$OUTDIR/armv7a"
 
 # works only with ndk-r6b and later
-source ${BUILDSCRIPTSDIR}/build_runtime_android_x86.sh dontclean
+#source ${BUILDSCRIPTSDIR}/build_runtime_android_x86.sh dontclean
 
 NUM_LIBS_BUILT=`ls -AlR $OUTDIR | grep libmono | wc -l`
-if [ $NUM_LIBS_BUILT -eq 8 ]; then
+if [ $NUM_LIBS_BUILT -eq 2 ]; then
 	echo "Android STATIC/SHARED libraries are found here: $OUTDIR"
 else
 	echo "Build failed? Android STATIC/SHARED library cannot be found... Found $NUM_LIBS_BUILT libs under $OUTDIR"
