@@ -1192,25 +1192,32 @@ mono_gc_is_finalizer_thread (MonoThread *thread)
 	return thread == gc_thread;
 }
 
+#define BITMAP_SIZE (sizeof (*((HandleData *)NULL)->bitmap) * CHAR_BIT)
+
+static inline gboolean
+slot_occupied (HandleData *handles, guint slot) {
+	return handles->bitmap [slot / BITMAP_SIZE] & (1 << (slot % BITMAP_SIZE));
+}
+
 void mono_gc_strong_handle_foreach(GFunc func, gpointer user_data)
 {
 	int gcHandleTypeIndex;
 	uint32_t i;
 
-	lock_handles (handles);
+	lock_handles(handles);
 
-	for (gcHandleTypeIndex = HANDLE_NORMAL; gcHandleTypeIndex < HANDLE_TYPE_MAX; gcHandleTypeIndex++)
+	for (gcHandleTypeIndex = HANDLE_NORMAL; gcHandleTypeIndex <= HANDLE_PINNED; gcHandleTypeIndex++)
 	{
 		HandleData* handles = &gc_handles[gcHandleTypeIndex];
 
 		for (i = 0; i < handles->size; i++)
-		{
-			if (!(handles->bitmap[i / 32] & (1 << (i % 32))))
+		{			
+			if (!slot_occupied(handles, i))
 				continue;
 			if (handles->entries[i] != NULL)
 				func(handles->entries[i], user_data);
 		}
 	}
 
-	unlock_handles (handles);
+	unlock_handles(handles);
 }
