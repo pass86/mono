@@ -137,3 +137,10 @@ tmpinst-dir.stamp
 msvc/scripts/inputs/
 extensions-config.h
 
+# build
+/builds
+support/libm/libmonoruntimesgen_static_la-complex.lo
+support/libm/libmonoruntimesgen_la-complex.lo
+support/libm/libmonoruntimebdwgc_static_la-complex.lo
+support/libm/libmonoruntimebdwgc_la-complex.lo
+external/android_krait_signal_handler/
