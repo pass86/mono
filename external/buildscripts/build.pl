@@ -181,7 +181,7 @@ else
 	}
 	else
 	{
-		$externalBuildDeps = "$monoroot/../../mono-build-deps/build";
+		$externalBuildDeps = "$monoroot/../mono-build-deps/build";
 	}	
 }
 print(">>> External build deps = $externalBuildDeps\n");
@@ -190,7 +190,7 @@ print(">>> External build deps = $externalBuildDeps\n");
 # abs_path ends up returning an empty string
 $externalBuildDeps = abs_path($externalBuildDeps) if (-d $externalBuildDeps);
 
-my $extraBuildTools = "$monoroot/../../mono-build-tools-extra/build";
+my $extraBuildTools = "$monoroot/../mono-build-tools-extra/build";
 
 my $existingExternalMonoRoot = "$externalBuildDeps/MonoBleedingEdge";
 my $existingExternalMono = "";
@@ -706,7 +706,7 @@ if ($build)
 		my $hostTriple = "";
 		my $platformRootPostfix = "";
 		my $useKraitPatch = 1;
-		my $kraitPatchPath = "$monoroot/../../android_krait_signal_handler/build";
+		my $kraitPatchPath = "$monoroot/external/android_krait_signal_handler";
 		my $toolChainExtension = "";
 
 		$ENV{ANDROID_PLATFORM} = "android-$apiLevel";

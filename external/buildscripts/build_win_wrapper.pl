@@ -73,9 +73,9 @@ if ($buildDeps ne "")
 }
 else
 {
-	if (-d "$monoroot/../../mono-build-deps/build" || $forceDefaultBuildDeps)
+	if (-d "$monoroot/../mono-build-deps/build" || $forceDefaultBuildDeps)
 	{
-		$externalBuildDeps = "$monoroot/../../mono-build-deps/build";
+		$externalBuildDeps = "$monoroot/../mono-build-deps/build";
 	}
 
 	if (!(-d "$externalBuildDeps"))

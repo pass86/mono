@@ -85,7 +85,7 @@ else
 	}
 	else
 	{
-		$externalBuildDeps = "$monoroot/../../mono-build-deps/build";
+		$externalBuildDeps = "$monoroot/../mono-build-deps/build";
 	}
 }
 print(">>> External build deps = $externalBuildDeps\n");
