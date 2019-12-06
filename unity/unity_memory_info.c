@@ -365,8 +365,6 @@ static void CaptureManagedHeap(MonoManagedHeap* heap)
 	GC_foreach_heap_section(&iterationContext, CopyHeapSection);
 
 	mono_mempool_foreach_chunk(domain->mp, CopyMemPoolChunk, &iterationContext);
-
-	GC_start_world_external();
 }
 
 static void GCHandleIterationCallback(MonoObject* managedObject, GList** managedObjects)
