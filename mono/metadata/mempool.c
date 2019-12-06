@@ -467,7 +467,7 @@ g_slist_append_mempool (MonoMemPool *mp, GSList *list, gpointer data)
 		return new_list;
 }
 
-void mono_mempool_foreach_block(MonoMemPool* pool, mono_mempool_block_proc callback, void* user_data)
+void mono_mempool_foreach_chunk(MonoMemPool* pool, mono_mempool_chunk_proc callback, void* user_data)
 {
 	MonoMemPool *current = pool;
 

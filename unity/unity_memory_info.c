@@ -195,7 +195,7 @@ static void MonoMemPoolNumChunksCallback(void* start, void* end, void* user_data
 static int MonoMemPoolNumChunks(MonoMemPool* pool)
 {
 	int count = 0;
-	mono_mempool_foreach_block(pool, MonoMemPoolNumChunksCallback, &count);
+	mono_mempool_foreach_chunk(pool, MonoMemPoolNumChunksCallback, &count);
 	return count;
 }
 
@@ -242,11 +242,6 @@ static void CopyMemPoolChunk(void* chunkStart, void* chunkEnd, void* context)
 	CopyHeapSection(context, chunkStart, chunkEnd);
 }
 
-static void AllocateMemoryForImageClassCache(MonoImage *image, gpointer *value, void *user_data)
-{
-	AllocateMemoryForSection(user_data, image->class_cache.table, ((uint8_t*)image->class_cache.table) + image->class_cache.size);
-}
-
 static void AddImageMemoryPoolChunkCount (MonoAssembly *assembly, MonoManagedHeap* heap)
 {
 	heap->sectionCount += MonoMemPoolNumChunks(assembly->image->mempool);
@@ -265,63 +260,25 @@ static int MonoImagesMemPoolNumChunks()
 	return count;
 }
 
-/* TODO
-static void IncrementCountForImageSetMemPoolNumChunks(MonoImageSet *imageSet, void *user_data)
-{
-	int* count = (int*)user_data;
-	(*count) += MonoMemPoolNumChunks(imageSet->mempool);
-}
-*/
-
-static int MonoImageSetsMemPoolNumChunks()
-{
-	int count = 0;	
-	//mono_metadata_image_set_foreach(IncrementCountForImageSetMemPoolNumChunks, &count); TODO
-	return count;
-}
-
 static void AllocateMemoryForImageMemPool(MonoAssembly *assembly, void *user_data)
 {
 	MonoImage* image = assembly->image;
 
-	mono_mempool_foreach_block(image->mempool, AllocateMemoryForMemPoolChunk, user_data);
+	mono_mempool_foreach_chunk(image->mempool, AllocateMemoryForMemPoolChunk, user_data);
 }
 
-/* TODO
-static void AllocateMemoryForImageSetMemPool(MonoImageSet* imageSet, void *user_data)
+static void CaptureHeapInfo(void* monoManagedHeap)
 {
-	AllocateMemoryForMemPool(imageSet->mempool, user_data);
-}
-*/
-
-typedef struct
-{
-	MonoManagedHeap* heap;
-	GHashTable* monoImages;
-
-} CaptureHeapInfoData;
-
-static void CaptureHeapInfo(void* user)
-{
-	CaptureHeapInfoData* data = (CaptureHeapInfoData*)user;
-	MonoManagedHeap* heap = data->heap;
-	GHashTable* monoImages = data->monoImages;
-
+	MonoManagedHeap* heap = (MonoManagedHeap*)monoManagedHeap;
 	MonoDomain* domain = mono_domain_get();
-	MonoDomain* rootDomain = mono_get_root_domain();
 	SectionIterationContext iterationContext;
 
 	// Increment count for each heap section
 	heap->sectionCount = GC_get_heap_section_count();
 	// Increment count for the domain mem pool chunk
-	heap->sectionCount += MonoMemPoolNumChunks(rootDomain->mp);
 	heap->sectionCount += MonoMemPoolNumChunks(domain->mp);
 	// Increment count for each image mem pool chunk
-	heap->sectionCount += MonoImagesMemPoolNumChunks(monoImages);
-	// Increment count for each image->class_cache hash table.
-	heap->sectionCount += g_hash_table_size(monoImages);
-	// Increment count for each image set mem pool chunk
-	heap->sectionCount += MonoImageSetsMemPoolNumChunks();
+	heap->sectionCount += MonoImagesMemPoolNumChunks();
 
 	heap->sections = g_new0(MonoManagedMemorySection, heap->sectionCount);
 
@@ -330,20 +287,10 @@ static void CaptureHeapInfo(void* user)
 	// Allocate memory for each heap section
 	GC_foreach_heap_section(&iterationContext, AllocateMemoryForSection);
 	// Allocate memory for the domain mem pool chunk
-	mono_domain_lock(rootDomain);
-	mono_mempool_foreach_block(rootDomain->mp, AllocateMemoryForMemPoolChunk, &iterationContext);
-	mono_domain_unlock(rootDomain);
-	mono_domain_lock(domain);
-	mono_mempool_foreach_block(domain->mp, AllocateMemoryForMemPoolChunk, &iterationContext);
-	mono_domain_unlock(domain);
+	mono_mempool_foreach_chunk(domain->mp, AllocateMemoryForMemPoolChunk, &iterationContext);
 	// Allocate memory for each image mem pool chunk
-	g_hash_table_foreach(monoImages, (GHFunc)AllocateMemoryForImageMemPool, &iterationContext);
-	// Allocate memory for each image->class_cache hash table.
-	g_hash_table_foreach(monoImages, (GHFunc)AllocateMemoryForImageClassCache, &iterationContext);
-	// Allocate memory for each image->class_cache hash table.
-	//mono_metadata_image_set_foreach(AllocateMemoryForImageSetMemPool, &iterationContext); TODO
+	mono_assembly_foreach((GFunc)AllocateMemoryForImageMemPool,  &iterationContext);
 
-	return NULL;
 }
 
 static void FreeMonoManagedHeap(MonoManagedHeap* heap)
@@ -407,23 +354,17 @@ static gboolean MonoManagedHeapStillValid(MonoManagedHeap* heap)
 //    allocated for their copies.
 // 5) Start the world again.
 
-static void CaptureManagedHeap(MonoManagedHeap* heap, GHashTable* monoImages)
+static void CaptureManagedHeap(MonoManagedHeap* heap)
 {
-	MonoDomain* rootDomain = mono_get_root_domain();
 	MonoDomain* domain = mono_domain_get();
 	SectionIterationContext iterationContext;
 
-	CaptureHeapInfoData data;
-
-	data.heap = heap;
-	data.monoImages = monoImages;
-
-	CaptureHeapInfo(&data);
+	CaptureHeapInfo(heap);
 	
 	iterationContext.currentSection = heap->sections;
 	GC_foreach_heap_section(&iterationContext, CopyHeapSection);
 
-	mono_mempool_foreach_block(domain->mp, CopyMemPoolChunk, &iterationContext);
+	mono_mempool_foreach_chunk(domain->mp, CopyMemPoolChunk, &iterationContext);
 }
 
 static void GCHandleIterationCallback(MonoObject* managedObject, GList** managedObjects)
@@ -510,7 +451,7 @@ MonoManagedMemorySnapshot* mono_unity_capture_memory_snapshot()
 	mono_domain_assembly_foreach(mono_domain_get(), CollectMonoImageFromAssembly, monoImages);
 
 	CollectMetadata(&snapshot->metadata);
-	CaptureManagedHeap(&snapshot->heap, monoImages);
+	CaptureManagedHeap(&snapshot->heap);
 	CaptureGCHandleTargets(&snapshot->gcHandles);
 	FillRuntimeInformation(&snapshot->runtimeInformation);
 
