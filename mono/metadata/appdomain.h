@@ -26,7 +26,6 @@ typedef struct _MonoAppDomain MonoAppDomain;
 typedef struct _MonoJitInfo MonoJitInfo;
 
 typedef void (*MonoDomainFunc) (MonoDomain *domain, gpointer user_data);
-typedef void (*MonoDomainAssemblyFunc) (MonoAssembly *assembly, void* user_data);
 typedef void (*MonoUnityExceptionFunc) (MonoObject* exc);
 
 MonoDomain*
