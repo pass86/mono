@@ -231,7 +231,7 @@ static void CopyHeapSection(void* context, void* sectionStart, void* sectionEnd)
 	MonoManagedMemorySection* section = ctx->currentSection;
 
 	g_assert(section->sectionStartAddress == (uint64_t)(sectionStart));
-	g_assert(section->sectionSize == (uint8_t*)(sectionEnd)-(uint8_t*)(sectionStart));
+	g_assert(section->sectionSize == (uint8_t*)(sectionEnd) - (uint8_t*)(sectionStart));
 	memcpy(section->sectionBytes, sectionStart, section->sectionSize);
 
 	ctx->currentSection++;
@@ -242,24 +242,9 @@ static void CopyMemPoolChunk(void* chunkStart, void* chunkEnd, void* context)
 	CopyHeapSection(context, chunkStart, chunkEnd);
 }
 
-static void CopyMemPool(MonoMemPool *pool, SectionIterationContext *context)
-{
-	mono_mempool_foreach_block(pool, CopyMemPoolChunk, context);
-}
-
-static void CopyImageMemPool(MonoImage *image, gpointer value, SectionIterationContext *context)
-{
-	CopyMemPool(image->mempool, context);
-}
-
 static void AllocateMemoryForImageClassCache(MonoImage *image, gpointer *value, void *user_data)
 {
 	AllocateMemoryForSection(user_data, image->class_cache.table, ((uint8_t*)image->class_cache.table) + image->class_cache.size);
-}
-
-static void CopyImageClassCache(MonoImage *image, gpointer value, SectionIterationContext *context)
-{
-	CopyHeapSection(context, image->class_cache.table, ((uint8_t*)image->class_cache.table) + image->class_cache.size);
 }
 
 static void AddImageMemoryPoolChunkCount (MonoAssembly *assembly, MonoManagedHeap* heap)
@@ -280,7 +265,7 @@ static int MonoImagesMemPoolNumChunks()
 	return count;
 }
 
-/* TODO: Fix compile
+/* TODO
 static void IncrementCountForImageSetMemPoolNumChunks(MonoImageSet *imageSet, void *user_data)
 {
 	int* count = (int*)user_data;
@@ -291,7 +276,7 @@ static void IncrementCountForImageSetMemPoolNumChunks(MonoImageSet *imageSet, vo
 static int MonoImageSetsMemPoolNumChunks()
 {
 	int count = 0;	
-	//mono_metadata_image_set_foreach(IncrementCountForImageSetMemPoolNumChunks, &count); TODO: Fix compile
+	//mono_metadata_image_set_foreach(IncrementCountForImageSetMemPoolNumChunks, &count); TODO
 	return count;
 }
 
@@ -302,7 +287,7 @@ static void AllocateMemoryForImageMemPool(MonoAssembly *assembly, void *user_dat
 	mono_mempool_foreach_block(image->mempool, AllocateMemoryForMemPoolChunk, user_data);
 }
 
-/* TODO: Fix compile
+/* TODO
 static void AllocateMemoryForImageSetMemPool(MonoImageSet* imageSet, void *user_data)
 {
 	AllocateMemoryForMemPool(imageSet->mempool, user_data);
@@ -352,11 +337,11 @@ static void CaptureHeapInfo(void* user)
 	mono_mempool_foreach_block(domain->mp, AllocateMemoryForMemPoolChunk, &iterationContext);
 	mono_domain_unlock(domain);
 	// Allocate memory for each image mem pool chunk
-	//g_hash_table_foreach(monoImages, (GHFunc)AllocateMemoryForImageMemPool, &iterationContext); TODO: Fix crash
+	g_hash_table_foreach(monoImages, (GHFunc)AllocateMemoryForImageMemPool, &iterationContext);
 	// Allocate memory for each image->class_cache hash table.
 	g_hash_table_foreach(monoImages, (GHFunc)AllocateMemoryForImageClassCache, &iterationContext);
 	// Allocate memory for each image->class_cache hash table.
-	//mono_metadata_image_set_foreach(AllocateMemoryForImageSetMemPool, &iterationContext); TODO: Fix compile
+	//mono_metadata_image_set_foreach(AllocateMemoryForImageSetMemPool, &iterationContext); TODO
 
 	return NULL;
 }
@@ -436,13 +421,9 @@ static void CaptureManagedHeap(MonoManagedHeap* heap, GHashTable* monoImages)
 	CaptureHeapInfo(&data);
 	
 	iterationContext.currentSection = heap->sections;
-
 	GC_foreach_heap_section(&iterationContext, CopyHeapSection);
-	mono_mempool_foreach_block(rootDomain->mp, CopyMemPoolChunk, &iterationContext);
+
 	mono_mempool_foreach_block(domain->mp, CopyMemPoolChunk, &iterationContext);
-	//g_hash_table_foreach(monoImages, (GHFunc)CopyImageMemPool, &iterationContext); TODO: Fix crash
-	g_hash_table_foreach(monoImages, (GHFunc)CopyImageClassCache, &iterationContext);
-	//mono_metadata_image_set_foreach(CopyImageSetMemPool, &iterationContext); TODO: Fix compile
 }
 
 static void GCHandleIterationCallback(MonoObject* managedObject, GList** managedObjects)
